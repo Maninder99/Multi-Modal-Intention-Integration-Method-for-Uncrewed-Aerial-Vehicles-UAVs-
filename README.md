@@ -7,6 +7,7 @@ Since Milestone #1, a **fully functional low-fidelity web prototype** has been i
 
 ## Implementation Artifacts
 
+`Link to the web based prototype`: https://maninder99.github.io/Multi-Modal-Intention-Integration-Method-for-Uncrewed-Aerial-Vehicles-UAVs-/
 `Full dashboard layout.png`: **Full dashboard layout** showing input panel (voice/gesture buttons), sliders for modality priority, fusion log, and simulation canvas with UAV at starting position.
 `Fusion conflict resolution.png`: **Fusion conflict resolution** example: Voice: "Takeoff" (Confidence: 70%); Gesture: "Descend" (Confidence: 91%); Gesture: "Ascend" (Confidence: 94%); Gesture: "Turn Left" (Confidence: 89%); Gesture: "Turn Right" (Confidence: 95%); FUSED: "Takeoff" with log message: *"Voice prioritized (score: 61.9 > 10.4)"*.
 `UAV simulation in action.png`: **UAV simulation in action**: Drone has moved upward after fused “Takeoff” command, showing real-time canvas update and trajectory.

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UAV Multi-Modal Control v2</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .container { display: flex; gap: 20px; }
+    .panel { border: 1px solid #ccc; padding: 15px; border-radius: 8px; }
+    #fusion-log { background: #f0f0f0; height: 120px; overflow-y: auto; font-family: monospace; }
+    canvas { border: 1px solid #000; }
+    .slider { width: 200px; }
+    .tooltip { position: relative; display: inline-block; }
+    .tooltip .tooltiptext {
+      visibility: hidden; width: 180px; background: #333; color: #fff;
+      text-align: center; border-radius: 6px; padding: 5px; position: absolute;
+      z-index: 1; bottom: 125%; left: 50%; margin-left: -90px; opacity: 0;
+      transition: opacity 0.3s; font-size: 12px;
+    }
+    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    .badge { background: #007bff; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Multi-Modal UAV Control <span class="badge">v2 – Pilot Ready</span></h1>
+
+  <div class="container">
+    <!-- Input Panel -->
+    <div class="panel" style="flex:1">
+      <h3>Inputs</h3>
+      <button onclick="simulateVoice()">Simulate Voice</button>
+      <button id="realVoiceBtn" style="display:none">Real Voice (Click)</button><br><br>
+
+      <button onclick="simulateGesture('up')">Up</button>
+      <button onclick="simulateGesture('down')">Down</button>
+      <button onclick="simulateGesture('left')">Left</button>
+      <button onclick="simulateGesture('right')">Right</button><br><br>
+
+      <div class="tooltip">
+        <label>Voice Priority: <span id="vVal">50</span>%</label>
+        <input type="range" min="0" max="100" value="50" class="slider" id="voiceWeight" onchange="updateWeights()">
+        <span class="tooltiptext">Lower in noisy environments</span>
+      </div><br>
+
+      <div class="tooltip">
+        <label>Gesture Priority: <span id="gVal">50</span>%</label>
+        <input type="range" min="0" max="100" value="50" class="slider" id="gestureWeight" onchange="updateWeights()">
+        <span class="tooltiptext">Higher for precise control</span>
+      </div>
+    </div>
+
+    <!-- Fusion & Feedback -->
+    <div class="panel" style="flex:1">
+      <h3>Fusion & Feedback</h3>
+      <div id="fusion-log"></div>
+      <button onclick="fuseIntentions()" style="margin-top:10px">Fuse Now</button>
+    </div>
+
+    <!-- Simulation -->
+    <div class="panel" style="flex:1">
+      <h3>UAV Simulation</h3>
+      <canvas id="droneCanvas" width="300" height="200"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // === SAME AS M2 (voice, gesture, fusion, canvas) ===
+    let voiceCmd = null, gestureCmd = null;
+    let voiceConf = 0, gestureConf = 0;
+    const log = document.getElementById('fusion-log');
+    const canvas = document.getElementById('droneCanvas');
+    const ctx = canvas.getContext('2d');
+    let drone = { x: 150, y: 100 };
+
+    function logMsg(msg) {
+      const p = document.createElement('p');
+      p.textContent = msg;
+      p.style.margin = '2px 0';
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function simulateVoice() {
+      const cmds = ['Takeoff', 'Land', 'Hover', 'Ascend', 'Descend'];
+      voiceCmd = cmds[Math.floor(Math.random() * cmds.length)];
+      voiceConf = Math.random() * 40 + 60;
+      logMsg(`Voice: "${voiceCmd}" (Confidence: ${voiceConf.toFixed(0)}%)`);
+    }
+
+    function simulateGesture(dir) {
+      const map = { up: 'Ascend', down: 'Descend', left: 'Turn Left', right: 'Turn Right' };
+      gestureCmd = map[dir] || 'Hover';
+      gestureConf = Math.random() * 30 + 70;
+      logMsg(`Gesture: "${gestureCmd}" (Confidence: ${gestureConf.toFixed(0)}%)`);
+    }
+
+    function updateWeights() {
+      const v = document.getElementById('voiceWeight').value;
+      const g = 100 - v;
+      document.getElementById('gestureWeight').value = g;
+      document.getElementById('vVal').textContent = v;
+      document.getElementById('gVal').textContent = g;
+    }
+
+    function fuseIntentions() {
+      if (!voiceCmd && !gestureCmd) { logMsg("No inputs!"); return; }
+      const vWeight = document.getElementById('voiceWeight').value / 100;
+      const gWeight = 1 - vWeight;
+      const vScore = voiceConf * vWeight;
+      const gScore = gestureConf * gWeight;
+      let fused = gScore > vScore ? gestureCmd : voiceCmd;
+      let reason = gScore > vScore 
+        ? `Gesture prioritized (score: ${gScore.toFixed(1)} > ${vScore.toFixed(1)})` 
+        : `Voice prioritized (score: ${vScore.toFixed(1)} > ${gScore.toFixed(1)})`;
+      if (voiceCmd === gestureCmd) reason = "Perfect match!";
+      logMsg(`FUSED: "${fused}" — ${reason}`);
+      executeCommand(fused);
+    }
+
+    function executeCommand(cmd) {
+      const step = 20;
+      if (cmd.includes('Ascend')) drone.y -= step;
+      if (cmd.includes('Descend')) drone.y += step;
+      if (cmd.includes('Left')) drone.x -= step;
+      if (cmd.includes('Right')) drone.x += step;
+      if (cmd.includes('Takeoff')) drone.y = 50;
+      if (cmd.includes('Land')) drone.y = 180;
+      drawDrone();
+    }
+
+    function drawDrone() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'red';
+      ctx.beginPath();
+      ctx.arc(drone.x, drone.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText("UAV", drone.x + 15, drone.y);
+    }
+
+    // === OPTIONAL: REAL VOICE (click to enable) ===
+    const realVoiceBtn = document.getElementById('realVoiceBtn');
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      realVoiceBtn.style.display = 'inline-block';
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+
+      realVoiceBtn.onclick = () => {
+        recognition.start();
+        logMsg("Listening... (speak a command)");
+      };
+
+      recognition.onresult = (e) => {
+        voiceCmd = e.results[0][0].transcript.trim();
+        voiceConf = (e.results[0][0].confidence * 100).toFixed(0);
+        logMsg(`Real Voice: "${voiceCmd}" (Confidence: ${voiceConf}%)`);
+      };
+
+      recognition.onerror = () => logMsg("Voice error – using simulation");
+    }
+
+    // Init
+    updateWeights();
+    drawDrone();
+  </script>
+</body>
+</html>

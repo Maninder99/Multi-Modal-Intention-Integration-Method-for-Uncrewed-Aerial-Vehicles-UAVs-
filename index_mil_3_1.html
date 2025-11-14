@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UAV Multi-Modal Control v3</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .container { display: flex; gap: 20px; }
+    .panel { border: 1px solid #ccc; padding: 15px; border-radius: 8px; }
+    #fusion-log { background: #f0f0f0; height: 120px; overflow-y: auto; font-family: monospace; }
+    canvas { border: 1px solid #000; }
+    .slider { width: 200px; }
+    .tooltip { position: relative; display: inline-block; }
+    .tooltip .tooltiptext {
+      visibility: hidden; width: 180px; background: #333; color: #fff;
+      text-align: center; border-radius: 6px; padding: 5px; position: absolute;
+      z-index: 1; bottom: 125%; left: 50%; margin-left: -90px; opacity: 0;
+      transition: opacity 0.3s; font-size: 12px;
+    }
+    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    .badge { background: #007bff; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    #video { width: 300px; height: 200px; object-fit: cover; }
+    #gesture-status { color: green; font-weight: bold; }
+  </style>
+  <!-- MediaPipe Hands CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <h1>Multi-Modal UAV Control <span class="badge">v3 – Camera Gestures</span></h1>
+
+  <div class="container">
+    <!-- Input Panel -->
+    <div class="panel" style="flex:1">
+      <h3>Inputs</h3>
+      <button onclick="simulateVoice()">Simulate Voice</button>
+      <button id="realVoiceBtn" style="display:none">Real Voice (Click)</button><br><br>
+      
+      <button onclick="startCamera()">Start Camera (Gestures)</button>
+      <button onclick="stopCamera()">Stop Camera</button><br><br>
+      <div id="gesture-status">No gesture detected</div>
+
+      <button onclick="simulateGesture('up')">Up (Fallback)</button>
+      <button onclick="simulateGesture('down')">Down (Fallback)</button>
+      <button onclick="simulateGesture('left')">Left (Fallback)</button>
+      <button onclick="simulateGesture('right')">Right (Fallback)</button><br><br>
+
+      <div class="tooltip">
+        <label>Voice Priority: <span id="vVal">50</span>%</label>
+        <input type="range" min="0" max="100" value="50" class="slider" id="voiceWeight" onchange="updateWeights()">
+        <span class="tooltiptext">Lower in noisy environments</span>
+      </div><br>
+
+      <div class="tooltip">
+        <label>Gesture Priority: <span id="gVal">50</span>%</label>
+        <input type="range" min="0" max="100" value="50" class="slider" id="gestureWeight" onchange="updateWeights()">
+        <span class="tooltiptext">Higher for precise control</span>
+      </div>
+    </div>
+
+    <!-- Fusion & Feedback -->
+    <div class="panel" style="flex:1">
+      <h3>Fusion & Feedback</h3>
+      <div id="fusion-log"></div>
+      <button onclick="fuseIntentions()" style="margin-top:10px">Fuse Now</button>
+    </div>
+
+    <!-- Simulation + Camera -->
+    <div class="panel" style="flex:1">
+      <h3>UAV Simulation & Camera Feed</h3>
+      <video id="video" autoplay playsinline></video>
+      <canvas id="droneCanvas" width="300" height="200"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // === CORE LOGIC (Same as v2) ===
+    let voiceCmd = null, gestureCmd = null;
+    let voiceConf = 0, gestureConf = 0;
+    const log = document.getElementById('fusion-log');
+    const canvas = document.getElementById('droneCanvas');
+    const ctx = canvas.getContext('2d');
+    let drone = { x: 150, y: 100 };
+    let cameraRunning = false;
+
+    function logMsg(msg) {
+      const p = document.createElement('p');
+      p.textContent = new Date().toLocaleTimeString() + ' | ' + msg;
+      p.style.margin = '2px 0';
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function simulateVoice() {
+      const cmds = ['Takeoff', 'Land', 'Hover', 'Ascend', 'Descend'];
+      voiceCmd = cmds[Math.floor(Math.random() * cmds.length)];
+      voiceConf = Math.random() * 40 + 60;
+      logMsg(`Voice: "${voiceCmd}" (Confidence: ${voiceConf.toFixed(0)}%)`);
+    }
+
+    function simulateGesture(dir) {
+      const map = { up: 'Ascend', down: 'Descend', left: 'Turn Left', right: 'Turn Right' };
+      gestureCmd = map[dir] || 'Hover';
+      gestureConf = Math.random() * 30 + 70;
+      logMsg(`Gesture (Fallback): "${gestureCmd}" (Confidence: ${gestureConf.toFixed(0)}%)`);
+    }
+
+    function updateWeights() {
+      const v = document.getElementById('voiceWeight').value;
+      const g = 100 - v;
+      document.getElementById('gestureWeight').value = g;
+      document.getElementById('vVal').textContent = v;
+      document.getElementById('gVal').textContent = g;
+    }
+
+    function fuseIntentions() {
+      if (!voiceCmd && !gestureCmd) { logMsg("No inputs!"); return; }
+      const vWeight = document.getElementById('voiceWeight').value / 100;
+      const gWeight = 1 - vWeight;
+      const vScore = (voiceCmd ? voiceConf : 0) * vWeight;
+      const gScore = (gestureCmd ? gestureConf : 0) * gWeight;
+      let fused = gScore > vScore ? gestureCmd : voiceCmd;
+      let reason = gScore > vScore 
+        ? `Gesture prioritized (score: ${gScore.toFixed(1)} > ${vScore.toFixed(1)})` 
+        : `Voice prioritized (score: ${vScore.toFixed(1)} > ${gScore.toFixed(1)})`;
+      if (voiceCmd === gestureCmd) reason = "Perfect match!";
+      logMsg(`FUSED: "${fused}" — ${reason}`);
+      executeCommand(fused);
+    }
+
+    function executeCommand(cmd) {
+      const step = 20;
+      if (cmd.includes('Ascend')) drone.y -= step;
+      if (cmd.includes('Descend')) drone.y += step;
+      if (cmd.includes('Left')) drone.x -= step;
+      if (cmd.includes('Right')) drone.x += step;
+      if (cmd.includes('Takeoff')) drone.y = 50;
+      if (cmd.includes('Land')) drone.y = 180;
+      drawDrone();
+    }
+
+    function drawDrone() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw video feed overlay (scaled)
+      if (cameraRunning) {
+        ctx.drawImage(document.getElementById('video'), 0, 0, 300, 200);
+      }
+      // Draw drone on top
+      ctx.fillStyle = 'red';
+      ctx.beginPath();
+      ctx.arc(drone.x, drone.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.fillText("UAV", drone.x + 15, drone.y);
+    }
+
+    // === REAL VOICE (From v2) ===
+    const realVoiceBtn = document.getElementById('realVoiceBtn');
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      realVoiceBtn.style.display = 'inline-block';
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      realVoiceBtn.onclick = () => {
+        recognition.start();
+        logMsg("Listening... (speak a command)");
+      };
+      recognition.onresult = (e) => {
+        voiceCmd = e.results[0][0].transcript.trim();
+        voiceConf = (e.results[0][0].confidence * 100).toFixed(0);
+        logMsg(`Real Voice: "${voiceCmd}" (Confidence: ${voiceConf}%)`);
+      };
+      recognition.onerror = () => logMsg("Voice error – using simulation");
+    }
+
+    // === NEW: CAMERA GESTURES WITH MEDIAPIPE ===
+    const videoElement = document.getElementById('video');
+    const gestureStatus = document.getElementById('gesture-status');
+
+    function startCamera() {
+      navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+        videoElement.srcObject = stream;
+        videoElement.play();
+        cameraRunning = true;
+        logMsg("Camera started – Show hand gestures!");
+        initHands();
+      }).catch(err => {
+        logMsg("Camera error: " + err.message + " – Use fallback buttons");
+      });
+    }
+
+    function stopCamera() {
+      const stream = videoElement.srcObject;
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      videoElement.srcObject = null;
+      cameraRunning = false;
+      gestureStatus.textContent = "Camera stopped";
+      logMsg("Camera stopped");
+    }
+
+    function initHands() {
+      const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+      hands.setOptions({ maxNumHands: 1, modelComplexity: 0 });
+      hands.onResults(onResults);
+
+      const camera = new Camera(videoElement, {
+        onFrame: async () => { await hands.send({image: videoElement}); },
+        width: 640, height: 480
+      });
+      camera.start();
+    }
+
+    function onResults(results) {
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        // Simple gesture detection (thumb + fingers)
+        const thumbTip = landmarks[4]; // Thumb tip
+        const indexTip = landmarks[8]; // Index tip
+        const middleTip = landmarks[12]; // Middle tip
+
+        // Example gestures (customize as needed)
+        let detectedGesture = 'Hover'; // Default
+        let conf = 85; // Base confidence
+
+        // Open palm (all fingers extended)
+        if (indexTip.y < landmarks[6].y && middleTip.y < landmarks[10].y) {
+          detectedGesture = 'Takeoff';
+          conf = 90;
+        }
+        // Closed fist (fingers curled)
+        else if (indexTip.y > landmarks[6].y && middleTip.y > landmarks[10].y) {
+          detectedGesture = 'Land';
+          conf = 88;
+        }
+        // Thumbs up (thumb up, others down)
+        else if (thumbTip.y < landmarks[2].y && indexTip.y > landmarks[6].y) {
+          detectedGesture = 'Ascend';
+          conf = 92;
+        }
+        // Point left (index extended left)
+        else if (indexTip.x < landmarks[5].x - 0.1) {
+          detectedGesture = 'Turn Left';
+          conf = 80;
+        }
+
+        if (gestureCmd !== detectedGesture) {
+          gestureCmd = detectedGesture;
+          gestureConf = conf;
+          logMsg(`Camera Gesture: "${gestureCmd}" (Confidence: ${conf}%)`);
+          gestureStatus.textContent = `Detected: ${gestureCmd}`;
+          drawResults(results); // Draw landmarks
+        }
+      } else {
+        gestureStatus.textContent = "Show your hand";
+      }
+    }
+
+    function drawResults(results) {
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(videoElement, 0, 0, 300, 200);
+      if (results.multiHandLandmarks) {
+        for (const landmarks of results.multiHandLandmarks) {
+          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+          drawLandmarks(ctx, landmarks, {color: '#FF0000', lineWidth: 1});
+        }
+      }
+      ctx.restore();
+      drawDrone(); // Overlay drone
+    }
+
+    // Init
+    updateWeights();
+    drawDrone();
+  </script>
+</body>
+</html>
