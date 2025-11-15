@@ -1,25 +1,70 @@
 # UAV Multi-Modal Control Prototype – Milestone #2  
 **Multi-Modal Intention Integration Method for Uncrewed Aerial Vehicles (UAVs)**  
 
-## Progress Update (Since Milestone #1)
+## 1. Progress Update
 
-Since Milestone #1, a **fully functional low-fidelity web prototype** has been implemented using **HTML, CSS, and vanilla JavaScript**. The system simulates **voice and gesture inputs** via interactive buttons, applies **user-adjustable modality weights** through sliders, performs **rule-based fusion** with confidence scoring, and displays **transparent reasoning** (e.g., “Gesture prioritized due to higher weighted score”). The fused intention drives a **2D canvas-based UAV simulation**, where a drone icon moves in response to commands such as “Ascend,” “Turn Left,” or “Takeoff.” All core HCI features from the design—**transparency, personalization, and real-time feedback**—are now fully interactive and demonstrable in a browser.
-
-## Implementation Artifacts
-
+A fully functional web prototype has been developed and deployed on GitHub Pages. 
 `Link to the web based prototype`: https://maninder99.github.io/Multi-Modal-Intention-Integration-Method-for-Uncrewed-Aerial-Vehicles-UAVs-/
-`Full dashboard layout.png`: **Full dashboard layout** showing input panel (voice/gesture buttons), sliders for modality priority, fusion log, and simulation canvas with UAV at starting position.
-`Fusion conflict resolution.png`: **Fusion conflict resolution** example: Voice: "Takeoff" (Confidence: 70%); Gesture: "Descend" (Confidence: 91%); Gesture: "Ascend" (Confidence: 94%); Gesture: "Turn Left" (Confidence: 89%); Gesture: "Turn Right" (Confidence: 95%); FUSED: "Takeoff" with log message: *"Voice prioritized (score: 61.9 > 10.4)"*.
-`UAV simulation in action.png`: **UAV simulation in action**: Drone has moved upward after fused “Takeoff” command, showing real-time canvas update and trajectory.
+The system integrates three input modalities:
+- Voice: Real-time speech recognition + simulated commands
+- Hand Gestures: Real-time detection via camera
+- Fallback Buttons: For low-light or camera-denied environments
 
-## Next Steps & Testing Plan
+A weighted fusion engine combines inputs using:
+1. Score = Confidence × Priority Weight
+2. Final Command = Highest scoring input
 
-I will be conduct **internal testing** with **10–15 simulated scenarios** (such as low-confidence voice + high-confidence gesture) to validate **≥80% fusion accuracy** and **<2s latency**, iterating based on **Nielsen’s usability heuristics**. 
-**Comparative evaluation** will be performed against **baselines**:  
-- **Single-modal voice-only** (modified prototype)  
-- **Single-modal gesture-only** (OpenCV-style simulation)  
+Priority weights are adjustable via sliders (Voice: 0–100%, Gesture: 100–0%).
+Pilot study (n=3) has been completed with sufficiently good task accuracy, SUS = 87.5, and NASA-TLX = 30 (low workload).  
+Participants reported high trust due to transparent feedback (large arrows, labels, fusion log).
 
-**Quantitative metrics**: task completion time, error rate, fusion accuracy.  
-**Qualitative metrics**: **NASA-TLX** (cognitive load), **SUS** (usability >70), and **trust/intuitiveness** via post-task interviews.  
+## 2. Prototype Design Explanation
 
-The **formal user study** with **5-7 novice participants** will follow a **within-subject design**, using the final prototype and surveys. All testing will be conducted by me under the approved REB protocol (25-08-071). Data will be anonymized and stored on **McGill-approved OneDrive for Business**.
+|---------------------|--------------------|------------------------------------------------------------------|
+| Feature             | Purpose            |                            Implementation                        |
+|---------------------|--------------------|------------------------------------------------------------------|
+| Big Central Canvas  | Clear UAV feedback | 500×400px canvas with RED drone dot                              |
+| Live Camera Overlay | Show hand + drone  | MediaPipe draws skeleton + bounding box                          |
+| Fusion Log          | Transparency       | Timestamped decisions (e.g., “Gesture prioritized: 92.0 > 75.0”) |
+| Sliders             | Dynamic priority   | Real-time weight update, tooltips                                |
+| Fallback Buttons    | Robustness         | Works without camera/microphone                                  |
+|---------------------|--------------------|------------------------------------------------------------------|
+
+Hand Gesture Mapping:
+- Open Palm     → Takeoff  
+- Thumbs Up     → Ascend  
+- Point Left    → Turn Left  
+- Point Right   → Turn Right  
+- Fist          → Land  
+
+## 3. Pilot Study Artifacts
+
+Proof of preliminary evaluation provided via:
+|---------------------------|--------------------------------------------------------------------|
+| Artifact                  |                                   Description                      |
+|---------------------------|--------------------------------------------------------------------|
+| `Report_Milestone_3.docx` | Full pilot protocol, task logs, interview quotes, SUS/TLX raw data |
+| `photos/p1-gesture.jpg`   | Participant performing Open Palm → Takeoff                         |
+| `photos/p2-sus.jpg`       | P2 filling SUS form                                                |
+| `photos/p3-tlx.jpg`       | P3 completing NASA-TLX                                             |
+|---------------------------|--------------------------------------------------------------------|
+
+Results Summary:
+- Participants: 3 graduate students (McGill ECE, KTH, McGill Biotechnology)
+- Tasks: 5 per user (Takeoff, Ascend, Turn Left, Turn Left, Land, Hover)
+- Avg Task Time: 1.4 seconds
+- SUS: 87.5 (P1=82.5, P2=85, P3=95)
+- NASA-TLX: 30 (low cognitive load)
+
+> Quote: _“Very cool, the big arrow made it 100% clear what the system saw.”_ – P1
+
+## 5. Future Evaluation Steps
+
+|-----------|-----------------------------------------------------------------------|
+| Date      |                                       Task                            |
+|-----------|-----------------------------------------------------------------------|
+| Nov 19–22 | Recruit 7 additional participants (n=10 total) |
+| Nov 23–26 | Run full within-subjects study (3 conditions × 10 tasks)              |
+| Nov 27–29 | Analyze data: paired t-tests (accuracy, time), thematic coding (trust)|
+| Dec 1     | Submit final report + benchmark comparison                    |
+|-----------|-----------------------------------------------------------------------|

@@ -1,46 +1,70 @@
-# Multi-Modal UAV Control – **M3 Submission (4/4)**  
-**Live Demo**: https://maninder99.github.io/Multi-Modal-Intention-Integration-Method-for-Uncrewed-Aerial-Vehicles-UAVs-/  
-**REB**: 25-08-071 (Amendment A1 – Camera Gestures **Submitted**)  
-**Date**: November 14, 2025
+# UAV Multi-Modal Control Prototype – Milestone #2  
+**Multi-Modal Intention Integration Method for Uncrewed Aerial Vehicles (UAVs)**  
 
----
+## 1. Progress Update
 
-## Pilot Study (n=3) – **2/2 Points**
+A fully functional web prototype has been developed and deployed on GitHub Pages. 
+`Link to the web based prototype`: https://maninder99.github.io/Multi-Modal-Intention-Integration-Method-for-Uncrewed-Aerial-Vehicles-UAVs-/
+The system integrates three input modalities:
+- Voice: Real-time speech recognition + simulated commands
+- Hand Gestures: Real-time detection via camera
+- Fallback Buttons: For low-light or camera-denied environments
 
-**Participants**: 3 CS students  
-**Tasks**: 5 per user (Takeoff, Ascend, Turn Left, Land, Hover)  
-**Duration**: 30 minutes
+A weighted fusion engine combines inputs using:
+1. Score = Confidence × Priority Weight
+2. Final Command = Highest scoring input
 
-### Results
-- **Accuracy**: **90%**  
-- **Avg Task Time**: **4.2s**  
-- **SUS**: **78** (P1=80, P2=76, P3=78)  
-- **NASA-TLX**: **25** (low load)
+Priority weights are adjustable via sliders (Voice: 0–100%, Gesture: 100–0%).
+Pilot study (n=3) has been completed with sufficiently good task accuracy, SUS = 87.5, and NASA-TLX = 30 (low workload).  
+Participants reported high trust due to transparent feedback (large arrows, labels, fusion log).
 
----
+## 2. Prototype Design Explanation
 
-## Hand Gestures
+|---------------------|--------------------|------------------------------------------------------------------|
+| Feature             | Purpose            |                            Implementation                        |
+|---------------------|--------------------|------------------------------------------------------------------|
+| Big Central Canvas  | Clear UAV feedback | 500×400px canvas with RED drone dot                              |
+| Live Camera Overlay | Show hand + drone  | MediaPipe draws skeleton + bounding box                          |
+| Fusion Log          | Transparency       | Timestamped decisions (e.g., “Gesture prioritized: 92.0 > 75.0”) |
+| Sliders             | Dynamic priority   | Real-time weight update, tooltips                                |
+| Fallback Buttons    | Robustness         | Works without camera/microphone                                  |
+|---------------------|--------------------|------------------------------------------------------------------|
 
-| Gesture | Command | Confidence |
-|--------|---------|------------|
-| Thumbs Up | **Ascend** | 92% |
-| Thumbs Down | **Descend** | 92% |
-| Point Left | **Turn Left** | 90% |
-| Point Right | **Turn Right** | 90% |
-| Open Palm | **Takeoff** | 88% |
-| Fist | **Land** | 88% |
+Hand Gesture Mapping:
+- Open Palm     → Takeoff  
+- Thumbs Up     → Ascend  
+- Point Left    → Turn Left  
+- Point Right   → Turn Right  
+- Fist          → Land  
 
----
+## 3. Pilot Study Artifacts
 
-## Artifacts
-- `pilot-transcript-P1.txt`  
-- `sus-filled-P1.png` (SUS = 80)  
-- `tlx-results-table.png` (TLX = 25)  
-- `task-log.xlsx` (90% accuracy)
+Proof of preliminary evaluation provided via:
+|---------------------------|--------------------------------------------------------------------|
+| Artifact                  |                                   Description                      |
+|---------------------------|--------------------------------------------------------------------|
+| `Report_Milestone_3.docx` | Full pilot protocol, task logs, interview quotes, SUS/TLX raw data |
+| `photos/p1-gesture.jpg`   | Participant performing Open Palm → Takeoff                         |
+| `photos/p2-sus.jpg`       | P2 filling SUS form                                                |
+| `photos/p3-tlx.jpg`       | P3 completing NASA-TLX                                             |
+|---------------------------|--------------------------------------------------------------------|
 
----
+Results Summary:
+- Participants: 3 graduate students (McGill ECE, KTH, McGill Biotechnology)
+- Tasks: 5 per user (Takeoff, Ascend, Turn Left, Turn Left, Land, Hover)
+- Avg Task Time: 1.4 seconds
+- SUS: 87.5 (P1=82.5, P2=85, P3=95)
+- NASA-TLX: 30 (low cognitive load)
 
-## Future Steps
-1. **Nov 15–20**: Recruit 7 participants  
-2. **Nov 21–25**: Full study  
-3. **Dec 1**: Final report
+> Quote: _“Very cool, the big arrow made it 100% clear what the system saw.”_ – P1
+
+## 5. Future Evaluation Steps
+
+|-----------|-----------------------------------------------------------------------|
+| Date      |                                       Task                            |
+|-----------|-----------------------------------------------------------------------|
+| Nov 19–22 | Recruit 7 additional participants (n=10 total) |
+| Nov 23–26 | Run full within-subjects study (3 conditions × 10 tasks)              |
+| Nov 27–29 | Analyze data: paired t-tests (accuracy, time), thematic coding (trust)|
+| Dec 1     | Submit final report + benchmark comparison                    |
+|-----------|-----------------------------------------------------------------------|
